@@ -9,9 +9,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Find project folder
         run: |
-          if [ -f package.json ]; then echo "APP_DIR=." >> $GITHUB_ENV;
-          elif [ -f jdtag-app/package.json ]; then echo "APP_DIR=jdtag-app" >> $GITHUB_ENV;
-          else echo "::error::package.json을 찾지 못했어요. 파일이 업로드됐는지 확인해 주세요."; ls -la; exit 1; fi
+          P=$(find . -name package.json -not -path "*/node_modules/*" -not -path "./.git/*" | head -1)
+          if [ -z "$P" ]; then echo "::error::package.json을 찾지 못했어요"; find . -maxdepth 3 -not -path "./.git*"; exit 1; fi
+          echo "APP_DIR=$(dirname "$P")" >> $GITHUB_ENV
+          echo "프로젝트 위치: $(dirname "$P")"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
