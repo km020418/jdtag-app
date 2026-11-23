@@ -1,0 +1,13 @@
+{
+  "appId": "kr.co.jdsol.jdtag",
+  "appName": "JD Tag",
+  "webDir": "www",
+  "backgroundColor": "#0E0F12",
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 3000, "launchAutoHide": false, "backgroundColor": "#0E0F12", "showSpinner": false },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#0E0F12", "overlaysWebView": false },
+    "Keyboard": { "resize": "native" }
+  },
+  "ios": { "contentInset": "never", "backgroundColor": "#0E0F12" },
+  "android": { "backgroundColor": "#0E0F12" }
+}
