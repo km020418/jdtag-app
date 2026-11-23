@@ -1177,7 +1177,7 @@ R.visit=()=>{const st=FBM()?(S.visits.some(v=>v.status==='예정')?'active':S.pe
 </div>`}};
 function visitRows(L){return L.map(v=>`<div class="li" data-act="openVisit" data-id="${v.id}"><div class="av">${v.place.replace(/\(주\)/,'')[0]}</div><div class="tx"><b>${v.place}</b><span>${v.sub}</span></div><span class="meta" style="color:${v.status==='반려'?'var(--red)':v.status==='예정'||v.status==='승인 대기'?'var(--blue)':'var(--g1)'}">${v.status}</span>${ic('right','class="chev"')}</div>`).join('')}
 A.openVisit=b=>{const v=S.visits.find(x=>x.id===b.dataset.id);
-  if(v.status==='반려')go('rejected',{id:v.id});else if(v.status==='예정')go('pass',{id:v.id});else if(v.status==='승인 대기')go('reserveDone',{view:1});else go('visitDetail',{id:v.id})};
+  if(v.status==='반려')go('rejected',{id:v.id});else if(v.status==='예정')go('pass',{id:v.id});else if(v.status==='승인 대기')go('reserveDone',{view:1,id:v.id});else go('visitDetail',{id:v.id})};
 R.visitDetail=({id})=>{const v=S.visits.find(x=>x.id===id);return {html:`${topbar({title:'방문 상세'})}
 <div class="scroll pad"><div class="h1" style="margin-top:8px">${v.place}</div><div class="sub">${v.sub}</div>
 <div class="list" style="margin-top:20px"><div class="kv"><b>상태</b><span>${v.status}</span></div><div class="kv"><b>방문 일시</b><span>${v.sub.split(' · ')[0]}</span></div><div class="kv"><b>담당자</b><span>${v.sub.split(' · ')[1]||'-'}</span></div><div class="kv"><b>출입 방식</b><span>사운드 키</span></div></div></div>`}};
@@ -1185,7 +1185,7 @@ R.visitDetail=({id})=>{const v=S.visits.find(x=>x.id===id);return {html:`${topba
 /* ===== C-02 Branch & host ===== */
 const BR=[{id:'hq',name:'(주)제이디솔루션 본사',short:'본사',addr:'서울시 금천구 가산동 디지털로'},{id:'dj',name:'(주)제이디솔루션 대전지사',short:'대전지사',addr:'대전시 유성구 테크노로'}];
 const HO=[{id:'park',name:'박지훈 팀장',sub:'영업1팀 · 평균 응답 10분'},{id:'lee',name:'이서연 대리',sub:'총무팀 · 평균 응답 15분'}];
-let RV={br:'hq',ho:'park',days:[1,2,3],time:'10:00',dur:'4시간',week:0};
+let RV={br:'hq',ho:'park',days:[],time:'10:00',dur:'4시간',week:0};
 const stepDots=n=>`<div class="steps" style="position:absolute;left:50%;transform:translateX(-50%)">${[1,2,3].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</div>`;
 R.reserve1=()=>({html:`${topbar({center:stepDots(1)})}
 <div class="scroll pad" style="padding-bottom:120px">
@@ -1201,24 +1201,27 @@ A.rvPick=b=>{fx('tick');RV[b.dataset.k]=b.dataset.v;$$(`[data-act=rvPick][data-k
 
 /* ===== C-03 Date & time ===== */
 const DOW=['일','월','화','수','목','금','토'];
-const sep=d=>{const dt=new Date(2026,7,30+d);return {m:dt.getMonth()+1,d:dt.getDate(),w:dt.getDay(),key:Math.round((dt-new Date(2026,8,1))/864e5)}}; // key: days from 09.01
-const fmt=k=>{const dt=new Date(2026,8,1+k);return String(dt.getMonth()+1).padStart(2,'0')+'.'+String(dt.getDate()).padStart(2,'0')};
-const dowOf=k=>DOW[new Date(2026,8,1+k).getDay()];
+/* calendar keys are days from today (real dates) */
+const BASE0=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const kDate=k=>{const b=BASE0();return new Date(b.getFullYear(),b.getMonth(),b.getDate()+k)};
+const sep=d=>{const b=BASE0();const dt=new Date(b.getFullYear(),b.getMonth(),b.getDate()-b.getDay()+d);return {y:dt.getFullYear(),m:dt.getMonth()+1,d:dt.getDate(),w:dt.getDay(),key:Math.round((dt-b)/864e5)}};
+const fmt=k=>{const dt=kDate(k);return String(dt.getMonth()+1).padStart(2,'0')+'.'+String(dt.getDate()).padStart(2,'0')};
+const dowOf=k=>DOW[kDate(k).getDay()];
 const durH={'1시간':1,'2시간':2,'4시간':4,'종일':0};
 const endTime=()=>{if(RV.dur==='종일')return '18:00';const [h,m]=RV.time.split(':').map(Number);return String(h+durH[RV.dur]).padStart(2,'0')+':'+String(m).padStart(2,'0')};
 const timeStr=()=>RV.dur==='종일'?'09:00 – 18:00':`${RV.time} – ${endTime()}`;
 const rangeStr=()=>{const d=RV.days.map(x=>x-1);if(!d.length)return '날짜를 선택해 주세요';return d.length>1?`${fmt(d[0])} – ${fmt(d[d.length-1])} · ${d.length}일`:`${fmt(d[0])} · 당일`};
 R.reserve2=()=>{
-  const wk=[...Array(7)].map((_,i)=>sep(RV.week*7+i));const mo=wk[3].m;
+  const wk=[...Array(7)].map((_,i)=>sep(RV.week*7+i));const mo=wk[3].m,yr=wk[3].y;const BC=branchCfg();
   const TIMES=['09:00','09:30','10:00','10:30','11:00','13:00','13:30','14:00','14:30'],OFF=['11:00','14:30'];
   return {html:`${topbar({center:stepDots(2)})}
 <div class="scroll pad" style="padding-bottom:120px">
-  <div class="over" style="margin-top:8px">STEP 2 / 3</div><div class="h1" style="margin-top:2px">언제 방문하세요?</div><div class="sub">날짜를 이어서 누르면 최대 3일까지 선택돼요.</div>
+  <div class="over" style="margin-top:8px">STEP 2 / 3</div><div class="h1" style="margin-top:2px">언제 방문하세요?</div><div class="sub">날짜를 이어서 누르면 최대 ${branchCfg().maxDays}일까지 선택돼요.</div>
   <div class="card" style="padding:18px 14px;margin-top:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px"><b style="font-size:17px">2026년 ${mo}월</b>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px"><b style="font-size:17px">${yr}년 ${mo}월</b>
       <div style="display:flex;gap:8px"><button class="ibtn" style="width:34px;height:34px;background:var(--canvas)" data-act="wk" data-d="-1">${ic('left','style="width:16px;height:16px"')}</button><button class="ibtn" style="width:34px;height:34px;background:var(--canvas)" data-act="wk" data-d="1">${ic('right','style="width:16px;height:16px"')}</button></div></div>
-    <div style="display:flex;justify-content:space-between;margin-top:16px">${wk.map(x=>{const k=x.key+1,past=x.key<0,wkend=x.w===0||x.w===6,on=RV.days.includes(k),mid=on&&RV.days.length===3&&RV.days[1]===k;
-      const dis=past||wkend;
+    <div style="display:flex;justify-content:space-between;margin-top:16px">${wk.map(x=>{const k=x.key+1,past=x.key<0,wkend=x.w===0||x.w===6,on=RV.days.includes(k),mid=on&&RV.days.length>2&&k!==RV.days[0]&&k!==RV.days[RV.days.length-1];
+      const hol=BC.holidays.some(h=>String(h.d).startsWith(fmt(x.key))),noSame=x.key===0&&!BC.sameDay;const dis=past||(x.w===0||(x.w===6&&!BC.saturday))||hol||noSame;
       return `<button ${dis?'disabled':''} data-act="pickDay" data-k="${k}" style="width:40px;height:68px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;
         background:${on?(mid?'var(--soft)':'var(--ink)'):(!dis&&x.key>=0&&x.key<=3&&!on?'#F2F3F5':'transparent')};color:${on?(mid?'var(--blue)':'#fff'):dis?'#C9CCD2':'var(--ink)'}">
         <span style="font-size:11px;font-weight:600;opacity:.8">${DOW[x.w]}</span><span style="font-size:21px;font-weight:800">${x.d}</span>${on&&!mid?'<i style="position:absolute;bottom:7px;width:4px;height:4px;border-radius:50%;background:var(--blue)"></i>':''}</button>`}).join('')}</div>
@@ -1233,7 +1236,7 @@ R.reserve2=()=>{
 };
 A.wk=b=>{RV.week=Math.max(0,Math.min(4,RV.week+Number(b.dataset.d)));replace('reserve2',{},'none')};
 A.pickDay=b=>{fx('tick');const k=Number(b.dataset.k),d=RV.days;
-  if(d.length&&d.length<3&&k===d[d.length-1]+1)d.push(k);else RV.days=[k];replace('reserve2',{},'none')};
+  if(d.length&&d.length<branchCfg().maxDays&&k===d[d.length-1]+1)d.push(k);else RV.days=[k];replace('reserve2',{},'none')};
 A.pickTime=b=>{RV.time=b.dataset.t;if(RV.dur==='종일')RV.dur='4시간';const sc=$('.scroll').scrollTop;replace('reserve2',{},'none');$('.scroll').scrollTop=sc};
 A.pickDur=b=>{RV.dur=b.dataset.d;const sc=$('.scroll').scrollTop;replace('reserve2',{},'none');$('.scroll').scrollTop=sc};
 
@@ -1247,7 +1250,7 @@ R.reserve3=()=>{const br=BR.find(b=>b.id===RV.br),ho=HO.find(h=>h.id===RV.ho);co
 </div>
 <div class="sumbar"><div class="t"><b>${rangeStr()}</b><span>${d.length>1?'매일 ':''}${timeStr()}</span></div><button class="btn primary" data-act="submitReserve">예약 신청</button></div>`}};
 A.submitReserve=()=>{const br=BR.find(b=>b.id===RV.br),ho=HO.find(h=>h.id===RV.ho);const d=RV.days.map(x=>x-1);
-  const v={id:'v'+Date.now(),place:br.name,branch:br.short,addr:br.addr,host:ho.name,status:'승인 대기',dates:d.length>1?`${fmt(d[0])} – ${fmt(d[d.length-1])}`:fmt(d[0]),days:d.length,time:timeStr(),d0:d[0],
+  const v={id:'v'+Date.now(),place:br.name,branch:br.short,addr:br.addr,host:ho.name,status:'승인 대기',dates:d.length>1?`${fmt(d[0])} – ${fmt(d[d.length-1])}`:fmt(d[0]),days:d.length,time:timeStr(),d0:d[0],t0:kDate(d[0]).getTime(),
     sub:(d.length>1?`${fmt(d[0])} – ${fmt(d[d.length-1])}`:fmt(d[0])+' '+RV.time)+' · '+ho.name};
   S.visits.unshift(v);S.pending={id:v.id,d1:fmt(d[0]),dw:dowOf(d[0]),time:timeStr(),place:br.name};S.visitState='pending';
   S.activity.unshift({g:'TODAY',av:'예',t:br.short+' 방문 예약 신청',s:'예약 · 방금',k:'예약'});pushAppRequest(v);save();
@@ -1255,13 +1258,13 @@ A.submitReserve=()=>{const br=BR.find(b=>b.id===RV.br),ho=HO.find(h=>h.id===RV.h
   reset('reserveDone',{});
 };
 /* ===== C-05 Done ===== */
-R.reserveDone=({view})=>{const ho=S.pending?S.visits.find(v=>v.id===S.pending.id)?.host:'박지훈 팀장';const rq=S.pending&&AD().requests.find(r=>r.fromApp===S.pending.id);return {html:`${topbar({left:'closeHome'})}
+R.reserveDone=({view,id})=>{const pid=id||(S.pending&&S.pending.id);const pv=pid&&S.visits.find(v=>v.id===pid);const ho=pv?pv.host:'박지훈 팀장';const rq=pid&&AD().requests.find(r=>r.fromApp===pid||r.visitId===pid);return {html:`${topbar({left:'closeHome'})}
 ${result({title:view?'승인을 기다리고 있어요':'예약을 신청했어요',sub:`${ho||'담당자'}에게 알림을 보냈어요.<br>승인되면 사운드 키가 발급돼요.`})}
 ${rq?`<div class="pad" style="margin-top:26px"><div style="background:#fff;border-radius:20px;padding:16px 18px">
   <div style="font-size:12px;font-weight:700;color:var(--blue);letter-spacing:.06em">${CLOUD.ready?'실시간 연동':'데모'}</div>
   <div style="font-size:13.5px;line-height:1.55;margin-top:6px;color:var(--g2)">관리자 콘솔의 <b style="color:var(--ink)">방문 예약</b>에 요청이 올라갔어요. 관리자가 승인·반려하면 이 휴대폰으로 바로 알림이 와요.</div>
-  <div style="display:flex;gap:8px;margin-top:12px"><button class="chip" data-act="demoDecide">관리자 없이 자동으로 결정하기</button></div></div></div>`:''}
-<div class="bottom"><button class="btn black" data-go="visitHistory">예약 내역 보기</button><button class="btn white" data-go="home" data-mode="reset">홈으로</button></div>`,
+  ${FBM()?'':'<div style="display:flex;gap:8px;margin-top:12px"><button class="chip" data-act="demoDecide">관리자 없이 자동으로 결정하기</button></div>'}</div></div>`:''}
+<div class="bottom"><button class="btn black" data-go="visitHistory">예약 내역 보기</button>${view&&pv&&pv.status==='승인 대기'?`<button class="btn white" data-act="cancelVisit" data-id="${pv.id}">예약 취소</button>`:`<button class="btn white" data-go="home" data-mode="reset">홈으로</button>`}</div>`,
   after(){if(!view)fx('saved')}}};
 A.demoDecide=()=>{if(!S.pending){snack('이미 처리된 예약이에요');return}const rq=AD().requests.find(r=>r.fromApp===S.pending.id);snack('관리자가 검토 중이에요…');
   setTimeout(()=>{if(rq&&rq.status==='대기'){decideRequest(rq.id,Math.random()>0.2,'해당 일자에 담당자가 부재 중이에요. 다른 날짜로 다시 신청해 주세요.');refreshAdmin()}},2500)};
@@ -1280,7 +1283,7 @@ ${result({kind:'fail',title:'예약이 반려됐어요',sub:'다른 일정으로
 
 /* ===== C-08 Pass ===== */
 R.pass=({id})=>{const v=activeVisit(id);if(!v||v.status!=='예정'){return R.keyUnavailable({none:true})}
-  const days=v.days||1;const today=v.id==='v1'||v.d0===0;
+  const days=v.days||1;const today=visitToday(v);
   return {cls:'dark',html:`${topbar({title:'사운드 키',right:`<button class="ibtn" data-go="notis">${ic('bell')}</button>`})}
 <div class="scroll pad" style="padding-bottom:110px">
   <div style="background:#fff;color:var(--ink);border-radius:28px;margin-top:8px;position:relative;animation:inUp .4s">
@@ -1319,7 +1322,7 @@ ${topbar({left:'close',title:'사운드 키',right:`<button class="ibtn" data-go
 <div class="bottom"><button class="btn white" data-back>송출 중지</button></div>`,
   after(){playTone();
     later(()=>{fx('tick',{sound:false});const t=$('#emTitle');if(t)t.textContent='거의 다 됐어요';const g=$('#glow');if(g)g.style.background='radial-gradient(circle at 50% 40%,rgba(0,110,255,.75) 0,rgba(0,70,220,.35) 160px,transparent 280px)'},1800);
-    later(()=>{stopTone();const ok=Math.random()>0.15;if(ok){S.activity.unshift({g:'TODAY',av:'출',t:'본사 3F 출입',s:'출입 · '+nowHM(),k:'출입'})}pushAppLog(ok);save();refreshAdmin();replace(ok?'entrySuccess':'entryFail',{id})},3600)}});
+    later(()=>{stopTone();const ok=entryOK(id);if(ok){S.activity.unshift({g:'TODAY',av:'출',t:gateName()+' 출입',s:'출입 · '+nowHM(),k:'출입'})}pushAppLog(ok);save();refreshAdmin();replace(ok?'entrySuccess':'entryFail',{id})},3600)}});
 const nowHM=(sec)=>{const d=new Date();return [d.getHours(),d.getMinutes()].concat(sec?[d.getSeconds()]:[]).map(n=>String(n).padStart(2,'0')).join(':')};
 
 /* ===== C-10 Unavailable ===== */
@@ -1330,11 +1333,11 @@ ${none?'':`<div style="text-align:center;margin-top:18px"><span class="pill red"
 
 /* ===== C-11 Success / C-12 Fail ===== */
 R.entrySuccess=({id})=>{const v=activeVisit(id)||{place:'(주)제이디솔루션 본사',days:1,host:'담당자'};return {html:`${topbar({left:'',right:`<button class="ibtn" data-go="home" data-mode="reset">${ic('x')}</button>`})}
-${result({title:'출입했어요',sub:`${v.branch||'본사'} 3F 출입 게이트 · ${nowHM(true)}`})}
+${result({title:'출입했어요',sub:`${gateName()} · ${nowHM(true)}`})}
 <div class="pad" style="margin-top:28px"><div class="list"><div class="kv light"><b>방문지</b><span>${v.place}</span></div><div class="kv light"><b>담당자</b><span>${v.host||'박지훈 팀장'}</span></div><div class="kv light"><b>방문 일차</b><span>1일차 / ${v.days||1}일</span></div><div class="kv light"><b>사운드 키</b><span style="color:var(--blue)">18:00까지 사용 가능</span></div></div></div>
 <div class="bottom"><button class="btn black" data-go="home" data-mode="reset">확인</button></div>`,after(){fx('entry')}}};
 R.entryFail=({id})=>({after(){fx('fail')},html:`${topbar({left:'closeHome'})}
-${result({kind:'fail',title:'출입하지 못했어요',sub:'사운드 인식에 실패했어요.<br>단말기에 가까이 대고 다시 시도해 주세요.'})}
+${result({kind:'fail',title:'출입하지 못했어요',sub:failMsg()})}
 <div class="bottom"><button class="btn primary" data-go="emitting" data-mode="replace" data-p='${J({id})}'>다시 시도하기</button><button class="btn white" data-back>닫기</button></div>`});
 
 /* ===== C-13 Visit history ===== */
@@ -2227,7 +2230,7 @@ R['am-emergency']=()=>{const A=AD();return {html:`${amTop({title:'비상 모드'
   <div style="font-size:11.5px;color:var(--g1);margin-top:10px">마지막 점검 · 09.15 박지훈 (테스트 정상)</div>
 </div>
 <div class="bottom">${A.emergency?`<button class="btn black" data-act="ameOff">비상 모드 해제</button>`:`<button class="btn red" id="ameGo" style="position:relative;overflow:hidden"><span>길게 눌러 ${AME==='open'?'전체 개방':'전체 잠금'} 실행</span></button>`}</div>`,
-  after(el){const b=$('#ameGo',el);if(b)holdToOpen(b,()=>{AD().emergency=AME;audit(AME==='open'?'비상 모드 · 전체 개방':'비상 모드 · 전체 잠금','본사 전체 게이트');save();fx('fail');snack('비상 모드를 실행했어요');replace('am-emergency',{},'none')})}}};
+  after(el){const b=$('#ameGo',el);if(b)holdToOpen(b,()=>{AD().emergency=AME;audit(AME==='open'?'비상 모드 · 전체 개방':'비상 모드 · 전체 잠금','본사 전체 게이트');save();if(typeof saveConfig==='function')saveConfig();fx('fail');snack('비상 모드를 실행했어요');replace('am-emergency',{},'none')})}}};
 A.ameP=b=>{AME=b.dataset.k;fx('tick');replace('am-emergency',{},'none')};
 A.ameOff=()=>{AD().emergency=null;audit('비상 모드 해제','본사 전체 게이트');save();fx('success');snack('비상 모드를 해제했어요');replace('am-emergency',{},'none')};
 
@@ -2282,8 +2285,10 @@ function subscribeAll(){unsubscribeAll();const db=CLOUD.db;const err=e=>{console
   const reqQ=ADMIN?db.collection('requests').orderBy('at','desc').limit(200):db.collection('requests').where('uid','==',ME());
   U(reqQ.onSnapshot(snap=>{const first=!CLOUD.first.req;CLOUD.first.req=true;let newPend=null;
     snap.docChanges().forEach(ch=>{if(ch.type==='removed')return;const d={...ch.doc.data(),id:ch.doc.id,remote:true};
-      const ex=AD().requests.find(r=>r.id===d.id);if(ex)Object.assign(ex,d);else{AD().requests.unshift(d);if(!first&&d.status==='대기'&&d.dev!==ME())newPend=d}
-      if(d.dev===ME()&&d.status!=='대기')applyVisitDecision(d.visitId,d.status==='승인',d.reason)});
+      const ex=AD().requests.find(r=>r.id===d.id);const prevSt=ex&&ex.status;if(ex)Object.assign(ex,d);else{AD().requests.unshift(d);if(!first&&d.status==='대기'&&d.dev!==ME())newPend=d}
+      if(ADMIN&&!first&&prevSt&&prevSt!=='취소'&&d.status==='취소'&&d.dev!==ME())adminCancelNoti(d);
+      if(d.dev===ME()&&(d.status==='승인'||d.status==='반려'))applyVisitDecision(d.visitId,d.status==='승인',d.reason);
+      if(d.dev===ME()&&d.status==='승인'&&d.keySt)applyKeyState(d.visitId,d.keySt)});
     save();if(newPend&&adminView()){AD().notis.unshift({g:'오늘',icon:'list',tone:'blue',t:'새 방문 예약 요청',s:`${newPend.name} · ${newPend.company} · ${newPend.dates}`,w:'방금',k:'승인',to:'request',p:newPend.id,unread:true});adminToast(`새 방문 예약 요청 · ${newPend.name}`,`${newPend.dates} · ${newPend.time}`,newPend.id)}
     refreshAdmin();refreshApp()},err));
   if(ADMIN){U(db.collection('logs').orderBy('at','desc').limit(100).onSnapshot(snap=>{const first=!CLOUD.first.logs;CLOUD.first.logs=true;let fail=null;
@@ -2292,7 +2297,7 @@ function subscribeAll(){unsubscribeAll();const db=CLOUD.db;const err=e=>{console
     save();refreshAdmin()},err));
   U(db.collection('verify').onSnapshot(snap=>{snap.docChanges().forEach(ch=>{const id=ch.doc.id;
       if(ch.type==='removed'){AD().verifyReqs=AD().verifyReqs.filter(v=>v.id!==id);return}
-      const d={...ch.doc.data(),id,remote:true};const ex=AD().verifyReqs.find(v=>v.id===id);if(ex)Object.assign(ex,d);else if(!d.done)AD().verifyReqs.unshift(d)});save();refreshAdmin()},err));
+      const d={...ch.doc.data(),id,remote:true};if(d.done){AD().verifyReqs=AD().verifyReqs.filter(v=>v.id!==id);return}const ex=AD().verifyReqs.find(v=>v.id===id);if(ex)Object.assign(ex,d);else AD().verifyReqs.unshift(d)});save();refreshAdmin()},err));
   if(FB)U(db.collection('users').limit(500).onSnapshot(snap=>{syncMembers(snap.docs.map(d=>({uid:d.id,...d.data()})));refreshAdmin()},err))
   if(FB){U(db.collection('admins').onSnapshot(snap=>{AD().admins=snap.docs.map(d=>({uid:d.id,...d.data()}));const me=AD().admins.find(a=>a.uid===CLOUD.uid);if(me&&!me.role){const fix={name:(S.user&&S.user.name)||'',email:CLOUD.email||'',role:'최고 관리자'};Object.assign(me,fix);cloudUpdate('admins/'+me.uid,fix)}if(me){AD().me.role=me.role||'최고 관리자';if(me.name)AD().me.name=me.name}save();refreshAdmin()},err));
     U(db.collection('terminals').onSnapshot(snap=>{AD().terminals=snap.docs.map(d=>({...d.data(),id:d.id}));save();refreshAdmin()},err));
@@ -2309,6 +2314,9 @@ function subscribeAll(){unsubscribeAll();const db=CLOUD.db;const err=e=>{console
       save();CLOUD.db.doc('exchanges/'+ch.doc.id).update({seen:true}).catch(()=>{});
       if(!adminView())toast({av:d.card.name[0],title:`${d.card.name}님이 명함을 보냈어요`,sub:`${d.card.company}${d.card.dept?' · '+d.card.dept:''} · 탭해서 확인`,to:'receive',p:{xid:ch.doc.id},sfx:'receive'});
       refreshApp()})},err));
+  if(FB){U(db.doc('config/branch').onSnapshot(s=>{window.BRANCH=s.exists?s.data():null;refreshApp()},err));
+    U(db.collection('terminals').onSnapshot(snap=>{window.TERMS=snap.docs.map(d=>({...d.data(),id:d.id}))},err));
+    if(!CLOUD.isAdmin)U(db.collection('verify').where('uid','==',ME()).onSnapshot(snap=>{snap.docs.forEach(d=>applyVerifyResult({...d.data(),id:d.id}))},err))}
   U(db.collection('devices').orderBy('openedAt','desc').limit(30).onSnapshot(snap=>{CLOUD.devices=snap.docs.map(d=>d.data());onPeersChange()},err));
 }
 
@@ -2327,7 +2335,7 @@ function syncMembers(list){const A=AD();list.filter(u=>u.profile).forEach(u=>{co
 const FBM=()=>CLOUD.mode==='firebase';
 let AUTH_RESOLVE=null;window.AUTH_READY=new Promise(r=>AUTH_RESOLVE=r);
 let acctWaiters=[];const acctReady=()=>new Promise(r=>acctWaiters.push(r));
-const APP_KEYS=['user','myCards','sendCard','contacts','totalContacts','visits','visitState','pending','notis','activity','settings','inbox','lastSent'];
+const APP_KEYS=['user','myCards','sendCard','contacts','totalContacts','visits','visitState','pending','notis','activity','settings','inbox','lastSent','verifyDone'];
 const appSubset=()=>{const o={};APP_KEYS.forEach(k=>{if(S[k]!==undefined)o[k]=S[k]});return JSON.parse(JSON.stringify(o))};
 function freshState(profile){const d=JSON.parse(JSON.stringify(DEF));
   return {...d,user:{...d.user,...profile},myCards:[d.myCards[0]],sendCard:'basic',contacts:[],totalContacts:0,visits:[],visitState:'none',pending:null,
@@ -2346,7 +2354,7 @@ async function loadAccount(u){loadingAcct=true;
   acctUnsub=CLOUD.db.doc('users/'+u.uid).onSnapshot(sn=>{if(!sn.exists)return;const d=sn.data();
     if(d.dev&&d.dev!==CLOUD.dev&&(d.updatedAt||0)>lastApplied&&d.app){lastApplied=d.updatedAt;applyApp(d.app);try{localStorage.setItem('jdtag',JSON.stringify(S))}catch(e){};refreshApp()}},()=>{});
 }
-function acctSave(){if(!FBM()||!CLOUD.uid||loadingAcct)return;clearTimeout(acctSaveT);acctSaveT=setTimeout(()=>{const now=Date.now();lastApplied=now;
+function acctSave(){if(!FBM()||!CLOUD.uid||loadingAcct||window.CONSOLE_ON)return;clearTimeout(acctSaveT);acctSaveT=setTimeout(()=>{const now=Date.now();lastApplied=now;
   const p=S.user||{};CLOUD.db.doc('users/'+CLOUD.uid).set({app:appSubset(),profile:{name:p.name||'',email:p.email||'',company:p.company||'',dept:p.dept||'',title:p.title||'',phone:p.phone||''},id:p.id||'',dev:CLOUD.dev,updatedAt:now,lastSeen:now},{merge:true}).catch(e=>console.warn('save',e&&e.code))},1200)}
 const _prevOnSave=window.__onSave;window.__onSave=()=>{if(_prevOnSave)_prevOnSave();acctSave()};
 
@@ -2620,6 +2628,69 @@ liveR('am-today',h=>{const A=AD(),st=liveStats();return h.replace('오늘 방문
 liveR('am-logs',h=>{const st=liveStats();return h.replace(/오늘 \d+건 · 실패/,`오늘 ${st.todayLogs}건 · 실패`)+(AD().logs.length?'':'')});
 liveR('am-terminals',h=>{const A=AD(),st=liveStats();return h.replace(/본사 \d+대 · 마지막 점검 09:00/,`등록 ${st.term}대`).replace(/>\d+<small style="font-size:12px;color:var\(--g2\)"> 대<\/small><\/div><div style="font-size:11.5px;color:var\(--g2\)">가동률 99.8%/,`>${st.term-st.off}<small style="font-size:12px;color:var(--g2)"> 대</small></div><div style="font-size:11.5px;color:var(--g2)">${st.term?'정상 동작':'PC 콘솔에서 등록해요'}`)});
 liveR('am-more',h=>h.replace(`${'18명'}`,AD().todayVisits.length+'명'));
+
+/* ===== App ↔ admin flow glue: branch config, sound key state, entry, cancel, verify results ===== */
+window.BRANCH=window.BRANCH||null;window.TERMS=window.TERMS||[];
+function branchCfg(){const c=(FBM()&&window.BRANCH)||{settings:AD().settings,holidays:AD().holidays,emergency:AD().emergency};const st=c.settings||{};
+  return {holidays:c.holidays||[],sameDay:st.sameDay!==false,saturday:!!st.saturday,maxDays:Math.max(1,Math.min(5,parseInt(st.maxDays)||3)),emergency:c.emergency||null,hours:st.weekday||'09:00 – 18:00'}}
+const gateName=()=>{const t=(window.TERMS||[]).find(t=>t.st!=='오프라인')||(window.TERMS||[])[0]||(AD().terminals||[])[0];return t?t.name:'출입 게이트'};
+function visitToday(v){if(!v)return false;if(v.t0){const s=v.t0,e=v.t0+(v.days||1)*864e5;const n=Date.now();return n>=s&&n<e}return v.id==='v1'||v.d0===0}
+let LAST_FAIL='';
+function entryOK(id){const v=S.visits.find(x=>x.id===id)||activeVisit(id);LAST_FAIL='';
+  if(!FBM()){const ok=Math.random()>0.15;if(!ok)LAST_FAIL='sound';return ok}
+  if(v&&v.keyRevoked){LAST_FAIL='revoked';return false}
+  if(branchCfg().emergency==='lock'){LAST_FAIL='lock';return false}
+  return true}
+const failMsg=()=>LAST_FAIL==='revoked'?'관리자가 사운드 키를 회수했어요.<br>담당자에게 문의해 주세요.':LAST_FAIL==='lock'?'지금은 비상 잠금 중이에요.<br>안내 데스크에 문의해 주세요.':'사운드 인식에 실패했어요.<br>단말기에 가까이 대고 다시 시도해 주세요.';
+const FAIL_NOTE={revoked:['회수된 키','관리자가 회수한 사운드 키로 출입을 시도했어요.'],lock:['비상 잠금','비상 잠금 중이라 출입이 거부됐어요.'],sound:['사운드 인식 실패','단말기가 사운드 키를 인식하지 못했어요.']};
+
+/* entry log uses the real gate / host / reason */
+const _pushAppLog=pushAppLog;
+pushAppLog=function(ok){if(!FBM())return _pushAppLog(ok);const v=S.visits.find(x=>x.status==='예정'&&x.active)||S.visits.find(x=>x.status==='예정')||{};const g=gateName();const fn=FAIL_NOTE[LAST_FAIL]||FAIL_NOTE.sound;
+  const lid='l'+Date.now();const entry={id:lid,dev:ME(),uid:ME(),at:Date.now(),t:nowHM(true),name:S.user.name,co:S.user.company,kind:'방문객',gate:g,how:'사운드 키',res:ok?'성공':'실패',note:ok?'앱 사운드 키':fn[0],day:'today',cause:fn[0],causeDetail:fn[1],host:(v.host||'').replace(/ .*/,''),phone:S.user.phone,visitId:v.id||''};
+  AD().logs.unshift(entry);cloudWrite('logs/'+lid,entry)};
+
+/* pass: revoked key / cancel link */
+const _pass=R.pass;
+R.pass=p=>{const v=activeVisit(p&&p.id);if(v&&v.status==='예정'&&v.keyRevoked){return {html:`${topbar({left:'close'})}
+${result({kind:'gray',title:'사운드 키가 회수됐어요',sub:'관리자가 이 방문의 사운드 키를 회수했어요.<br>담당자에게 문의해 주세요.'})}
+<div class="bottom"><button class="btn primary" data-go="visitHistory">내 예약 보기</button><button class="btn white" data-act="cancelVisit" data-id="${v.id}">예약 취소</button></div>`,after(){fx('fail',{sound:false})}}}
+  const out=_pass(p);if(v&&v.status==='예정'&&out.html)out.html=out.html.replace('<style>@keyframes nudge',`<div style="text-align:center;margin-top:-90px;padding-bottom:100px"><button data-act="cancelVisit" data-id="${v.id}" style="color:rgba(255,255,255,.55);font-size:13px;font-weight:700;text-decoration:underline">방문 예약 취소</button></div>\n<style>@keyframes nudge`);return out};
+
+/* visitor cancels a reservation → admin console */
+A.cancelVisit=b=>{const v=S.visits.find(x=>x.id===b.dataset.id);if(!v)return;
+  sheet(`<div class="h2" style="font-size:20px">방문 예약을 취소할까요?</div><div class="sub" style="margin-top:6px">${v.place} · ${v.dates}<br>취소하면 담당자에게 알림이 가요.</div>
+  <button class="btn red" style="margin-top:22px" data-act="doCancelVisit" data-id="${v.id}">예약 취소</button><button class="btn outline" style="margin-top:10px" data-act="closeSheet">닫기</button>`)};
+A.doCancelVisit=b=>{const v=S.visits.find(x=>x.id===b.dataset.id);if(!v)return;const was=v.status;v.status='취소';v.active=false;if(S.pending&&S.pending.id===v.id)S.pending=null;
+  S.visitState=S.visits.some(x=>x.status==='예정')?'active':S.visits.some(x=>x.status==='승인 대기')?'pending':'none';
+  const r=AD().requests.find(x=>x.visitId===v.id||x.fromApp===v.id);if(r){r.status='취소';cloudUpdate('requests/'+r.id,{status:'취소',canceledAt:Date.now(),prevStatus:was==='예정'?'승인':'대기'})}
+  S.activity.unshift({g:'TODAY',av:'예',t:'방문 예약 취소',s:'예약 · 방금',k:'예약'});save();closeSheet();fx('remove');snack('예약을 취소했어요');reset('visit',{},'none')};
+
+/* request updates seen by the visitor (key revoke / renew) */
+function applyKeyState(vid,keySt){const v=S.visits.find(x=>x.id===vid);if(!v||v.status!=='예정')return;const rev=keySt==='만료';if(!!v.keyRevoked===rev)return;v.keyRevoked=rev;
+  S.notis.unshift({g:'TODAY',av:'키',t:rev?'사운드 키가 회수됐어요':'사운드 키가 다시 발급됐어요',s:rev?'담당자에게 문의해 주세요':'지금 바로 사용할 수 있어요',w:'방금',to:'pass',p:{id:v.id},unread:true});
+  if(!adminView())toast({av:'키',title:rev?'사운드 키가 회수됐어요':'사운드 키가 다시 발급됐어요',sub:rev?'관리자가 키를 회수했어요':'탭해서 사운드 키 보기',to:'pass',p:{id:v.id},sfx:rev?'fail':'success'});save();refreshApp()}
+
+/* 소속 인증 결과 → app */
+function applyVerifyResult(d){if(!d||!d.status||d.status==='대기')return;S.verifyDone=S.verifyDone||{};if(S.verifyDone[d.id])return;S.verifyDone[d.id]=d.status;const ok=d.status==='승인';
+  if(ok){S.user.verified=true;S.user.org=d.org||S.user.company}
+  S.notis.unshift({g:'TODAY',av:'인',t:ok?'소속 인증이 완료됐어요':'소속 인증이 반려됐어요',s:ok?`${d.org||S.user.company} 구성원으로 인증됐어요`:(d.reason||'증빙 자료를 다시 확인해 주세요'),w:'방금',to:'notis',unread:true});
+  if(!adminView())toast({av:'인',title:ok?'소속 인증이 완료됐어요':'소속 인증이 반려됐어요',sub:ok?(d.org||S.user.company):'증빙 자료를 다시 확인해 주세요',to:'notis',sfx:ok?'success':'fail'});save();refreshApp()}
+
+/* admin: verify decisions are written back instead of deleted */
+CA.verifyAct=b=>{const A=AD();const v=A.verifyReqs.find(x=>x.id===b.dataset.id);if(!v)return;A.verifyReqs=A.verifyReqs.filter(x=>x!==v);const ok=b.dataset.k==='ok';
+  if(v.remote){cloudUpdate('verify/'+v.id,{status:ok?'승인':'반려',done:true,decidedAt:Date.now(),decidedBy:A.me.name})}
+  if(ok){const m=A.members.find(m=>m.email===v.email||(v.uid&&m.uid===v.uid));if(m)m.verified=true;else{A.members.unshift({name:v.name,email:v.email,dept:`${v.dept} · ${v.title}`,role:'구성원',card:'발급됨',last:'—'});A.memberTotal++}
+    audit('소속 인증 승인',v.name);fx('success');(window.CONSOLE_ON?csnack:snack)(`${v.name}님 소속을 인증했어요`)}
+  else{audit('소속 인증 반려',v.name);(window.CONSOLE_ON?csnack:snack)('인증 요청을 반려했어요')}
+  save();window.CONSOLE_ON?renderConsole(true):replace('am-verify',{},'none')};
+
+/* admin: show admin roles on the member list */
+const _liveDerive=liveDerive;liveDerive=function(){_liveDerive();if(!isLive())return;const A=AD();A.members.forEach(m=>{const ad=m.uid&&A.admins.find(a=>a.uid===m.uid);m.role=ad?(ad.role||'관리자'):'구성원'})};
+
+/* admin: a cancelled reservation shows up as a notification */
+function adminCancelNoti(d){if(!adminView()&&!window.CONSOLE_ON)return;AD().notis.unshift({g:'오늘',icon:'list',tone:'gray',t:'방문 예약 취소',s:`${d.name} · ${d.company||''} · ${d.dates}`,w:'방금',k:'예약',to:'request',p:d.id,unread:true});
+  adminToast(`방문 예약 취소 · ${d.name}`,`${d.dates} · ${d.time||''}`,d.id)}
 
 /* ===== Native shell (Capacitor iOS/Android) + installed-PWA detection ===== */
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
