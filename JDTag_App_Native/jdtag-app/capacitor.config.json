@@ -4,10 +4,33 @@
   "webDir": "www",
   "backgroundColor": "#0E0F12",
   "plugins": {
-    "SplashScreen": { "launchShowDuration": 3000, "launchAutoHide": false, "backgroundColor": "#0E0F12", "showSpinner": false },
-    "StatusBar": { "style": "DARK", "backgroundColor": "#0E0F12", "overlaysWebView": false },
-    "Keyboard": { "resize": "native" }
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": false,
+      "backgroundColor": "#0E0F12",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0E0F12",
+      "overlaysWebView": false
+    },
+    "Keyboard": {
+      "resize": "native"
+    }
   },
-  "ios": { "contentInset": "never", "backgroundColor": "#0E0F12" },
-  "android": { "backgroundColor": "#0E0F12" }
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0E0F12"
+  },
+  "android": {
+    "backgroundColor": "#0E0F12"
+  },
+  "server": {
+    "url": "https://km020418.github.io/jdtag-app/",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "km020418.github.io"
+    ]
+  }
 }
