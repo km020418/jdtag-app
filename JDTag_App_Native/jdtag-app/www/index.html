@@ -241,7 +241,7 @@ input{font:inherit;color:inherit;border:0;outline:0;background:none;width:100%}
 
 /* installed (home-screen) app: respect notch / home indicator */
 /* installed app (home-screen PWA or native): respect notch / home indicator */
-html.standalone,html.standalone body{background:var(--canvas);overscroll-behavior:none}
+html.standalone,html.standalone body{background:var(--edge,var(--canvas));overscroll-behavior:none;transition:background .3s}
 html.standalone body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 html.standalone input,html.standalone textarea{-webkit-user-select:text;user-select:text}
 html.standalone #phone{height:100vh;height:100dvh;max-width:none;border-radius:0;box-shadow:none}
@@ -254,6 +254,15 @@ html.standalone .toast{top:calc(env(safe-area-inset-top) + 8px)}
 html.android .screen{top:-26px}
 
 @media (max-width:599px){.tabbar{bottom:14px}.sumbar{bottom:14px}}
+
+/* device fit */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.compact .result{padding-top:20px}.compact .ring{width:112px;height:112px}.compact .ring>div{width:72px;height:72px}.compact .ring svg{width:34px;height:34px}
+.compact .result .h2{margin-top:16px;font-size:22px}
+@media (min-width:600px){html.standalone #phone{width:100%;max-width:560px;height:100vh;height:100dvh}html.standalone #stage{padding:0}}
+html.standalone .tabbar{bottom:max(12px,calc(max(env(safe-area-inset-bottom),var(--safe-area-inset-bottom,0px)) - 12px))}
+html.standalone .sumbar{bottom:max(12px,calc(max(env(safe-area-inset-bottom),var(--safe-area-inset-bottom,0px)) - 12px))}
+html.standalone .bottom{padding-bottom:max(28px,calc(max(env(safe-area-inset-bottom),var(--safe-area-inset-bottom,0px)) + 12px))}
 /* ===== PC Admin Console ===== */
 body.console-mode{background:var(--canvas)}
 body.console-mode #stage{display:block;padding:0;min-height:100vh}
@@ -410,7 +419,8 @@ body.console-mode .app-fab{display:none!important}
 body.split .splitbtn{right:var(--dockpad,460px)}
 </style></head>
 <body><div id="stage"><div id="phone"></div></div>
-<script>/* ===== Icons (stroke, 24 viewBox) ===== */
+<script>const BUILD='1795479334';
+/* ===== Icons (stroke, 24 viewBox) ===== */
 const P={
   door:'<path d="M4 21h16"/><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><path d="M14 12h.01"/>',
   grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -538,6 +548,7 @@ function render(anim){
   const nav=ensureNav();phone().insertBefore(el,nav);
   bind(el);
   out.after&&out.after(el);
+  if(window.fitScreen)fitScreen(el);
   setNav(out.tab);
   if(!window.CONSOLE_ON){try{history.replaceState(null,'','#'+(cur.name==='settings'?'app-settings':cur.name))}catch(e){}}
   if(anim==='none'||!anim||reduce||!old.length){
@@ -2691,6 +2702,45 @@ const _liveDerive=liveDerive;liveDerive=function(){_liveDerive();if(!isLive())re
 /* admin: a cancelled reservation shows up as a notification */
 function adminCancelNoti(d){if(!adminView()&&!window.CONSOLE_ON)return;AD().notis.unshift({g:'오늘',icon:'list',tone:'gray',t:'방문 예약 취소',s:`${d.name} · ${d.company||''} · ${d.dates}`,w:'방금',k:'예약',to:'request',p:d.id,unread:true});
   adminToast(`방문 예약 취소 · ${d.name}`,`${d.dates} · ${d.time||''}`,d.id)}
+
+/* ===== Device fit + live update ===== */
+/* 1) screens without their own scroll area: compact on short phones, then scroll instead of hiding under the bottom buttons */
+function fitScreen(el){try{
+  document.documentElement.style.setProperty('--edge',getComputedStyle(el).backgroundColor);
+  if(el.querySelector('.scroll'))return;const H=el.clientHeight;if(!H)return;const top0=el.getBoundingClientRect().top;
+  const bars=[...el.children].filter(c=>c.matches('.bottom,.sumbar'));
+  const limit=bars.length?Math.min(...bars.map(b=>{const r=b.getBoundingClientRect();return r.top+(b.matches('.bottom')?12:0)}))-top0:H;
+  const content=[...el.children].filter(c=>!c.matches('.bottom,.sumbar,.topbar,style,script')&&getComputedStyle(c).position!=='absolute');
+  if(!content.length)return;
+  const over=()=>Math.max(0,...content.map(c=>c.getBoundingClientRect().bottom-top0))>limit-6;
+  if(!over())return;el.classList.add('compact');if(!over())return;
+  const sc=document.createElement('div');sc.className='scroll';sc.style.paddingBottom=Math.max(24,H-limit+24)+'px';content[0].before(sc);content.forEach(c=>sc.appendChild(c));
+}catch(e){}}
+
+/* 2) notices: only real notices in live mode */
+const _homeR=R.home;R.home=p=>{const o=_homeR(p);if(FBM()){const n=AD().notices.find(n=>n.adminNew&&n.st==='게시 중'&&String(n.target).includes('방문자'));
+  o.html=o.html.replace(/<div class="notice-bar"[^]*?<\/div>/,n?`<div class="notice-bar" style="margin-top:14px" data-go="notice"><i class="bd"></i>${esc(n.title)}${ic('right')}</div>`:'')}return o};
+const _noticeR=R.notice;R.notice=(p={})=>{if(!FBM())return _noticeR(p);const open=p.open??-1;
+  const L=AD().notices.filter(n=>n.adminNew&&n.st==='게시 중'&&String(n.target).includes('방문자')).sort((a,b)=>(b.at||0)-(a.at||0))
+    .map(n=>{const d=n.at?new Date(n.at):null;return {t:n.title,d:d?`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`:n.period,b:n.body,new:n.at&&Date.now()-n.at<3*864e5}});
+  return {tab:'home',html:`${topbar({title:'공지사항'})}
+<div class="scroll pad pb-nav"><div class="h1" style="margin-top:8px">공지사항</div><div class="sub">회사에서 보낸 안내를 확인해요.</div>
+  <div class="list" style="margin-top:16px">${L.map((n,i)=>`<div class="li" style="flex-wrap:wrap" data-go="notice" data-mode="replace" data-p='${J({open:open===i?-1:i})}'><div class="tx"><b>${esc(n.t)}</b><span>${esc(n.d||'')}</span></div>${n.new?'<span class="meta">NEW</span>':''}${ic(open===i?'down':'right','class="chev"')}
+    ${open===i?`<div style="width:100%;font-size:13.5px;color:var(--g2);line-height:1.6;padding:12px 0 2px;white-space:pre-wrap">${esc(n.b||'')}</div>`:''}</div>`).join('')||'<div class="empty" style="padding:40px 0">아직 공지가 없어요</div>'}</div>
+</div>`}};
+
+/* 3) live update: the app always runs the newest deployed version */
+let UPD=null;
+const SAFE_UPD=['home','wallet','visit','login','splash','menu'];
+function applyUpdate(){try{sessionStorage.setItem('jdUpd','1')}catch(e){}location.replace(location.pathname+'?v='+UPD+location.hash)}
+async function checkUpdate(){if(!/^https?:$/.test(location.protocol)||typeof BUILD==='undefined')return;
+  try{const t=await fetch(location.pathname+'?_u='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'');const m=t.match(/const BUILD='(\d+)'/);if(!m||m[1]===BUILD)return;UPD=m[1];
+    if(window.CONSOLE_ON){if(!document.querySelector('.c-ov'))applyUpdate();return}
+    const cur=(hist[hist.length-1]||{}).name;if(SAFE_UPD.includes(cur)&&!document.querySelector('.sheet'))applyUpdate()}catch(e){}}
+const _renderD=render;render=function(a){_renderD(a);if(UPD&&!window.CONSOLE_ON&&SAFE_UPD.includes((hist[hist.length-1]||{}).name))setTimeout(applyUpdate,300)};
+setTimeout(checkUpdate,4000);setInterval(checkUpdate,20*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
+try{if(sessionStorage.getItem('jdUpd')){sessionStorage.removeItem('jdUpd');setTimeout(()=>{if(window.CONSOLE_ON)csnack('최신 버전으로 업데이트했어요');else snack('최신 버전으로 업데이트했어요')},2600)}}catch(e){}
 
 /* ===== Native shell (Capacitor iOS/Android) + installed-PWA detection ===== */
 const NATIVE=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
